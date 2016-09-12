@@ -1,3 +1,20 @@
+/*
+ * Three-ring clock, using three Neopixel rings:
+ * 1x a 60-led ring
+ * 1x a 24 led ring
+ * 1x a 12 led ring
+ * The rings are connected serially from large to small.
+ *
+ * The clock has two buttons that will set time and/or select the effects to use. Usage:
+ *
+ * Setting the time
+ * ================
+ * 1. Press both buttons simultaneously for a while until the ring flashes.
+ * 2. Use the hour button to advance the hour
+ * 3. Use the minute button to advance the minute
+ * 4. Leave the buttons alone for 5 seconds to leave time set mode.
+ *
+ */
 #include "Wire.h"
 #include "Adafruit_NeoPixel.h"
 
@@ -73,9 +90,22 @@ public:
 	}
 };
 
+byte rgbRed(uint32_t color) {
+	return (byte) (color >> 16);
+}
+byte rgbGreen(uint32_t color) {
+	return (byte) ( (color >> 8) & 0xff);
+}
+byte rgbBlue(uint32_t color) {
+	return (byte) (color & 0xff);
+}
 
-
-
+uint32_t rgbAdd(uint32_t a, uint32_t b) {
+	int red = (rgbRed(a) + rgbRed(b)) / 2;
+	int green = (rgbGreen(a) + rgbGreen(b)) / 2;
+	int blue = (rgbBlue(a) + rgbBlue(b)) / 2;
+	return Adafruit_NeoPixel::Color((uint8_t) red, (uint8_t) green, (uint8_t) blue);
+}
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(FULL_SIZE, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 Button hourButton = Button(BUTTON_HOUR_PIN);
@@ -180,6 +210,13 @@ int ledno(int ring, int ledno) {
 	return ledno + base;
 }
 
+void setLed(int ring, int led, uint32_t color) {
+	int nr = ledno(ring, led);
+	uint32_t old = pixels.getPixelColor(nr);
+	color = rgbAdd(old, color);
+	pixels.setPixelColor(nr, color);
+}
+
 /**
  * Hours are HOUR_COLOR, spread 12 hour over 60 pixels, 5 pixels per hour with the "big" thing in the center.
  */
@@ -189,19 +226,20 @@ void setHour(int hour) {
 	int firstled = hour * 5 - 2;
 	if(firstled < 0)
 		firstled = 60 - firstled;
-  	pixels.setPixelColor(ledno(0, firstled++), HOUR_COLOR2);
-	pixels.setPixelColor(ledno(0, firstled++), HOUR_COLOR1);
-	pixels.setPixelColor(ledno(0, firstled++), HOUR_COLOR);
-	pixels.setPixelColor(ledno(0, firstled++), HOUR_COLOR1);
-	pixels.setPixelColor(ledno(0, firstled++), HOUR_COLOR2);
+
+	setLed(0, firstled++, HOUR_COLOR2);
+	setLed(0, firstled++, HOUR_COLOR1);
+	setLed(0, firstled++, HOUR_COLOR);
+	setLed(0, firstled++, HOUR_COLOR1);
+	setLed(0, firstled, HOUR_COLOR2);
 
 	//-- ring 2: 24 leds -> 2 leds per hour
 	firstled = hour * 2 - 1;
-	pixels.setPixelColor(ledno(1, firstled++), HOUR_COLOR1);
-	pixels.setPixelColor(ledno(1, firstled++), HOUR_COLOR1);
+	setLed(1, firstled++, HOUR_COLOR1);
+	setLed(1, firstled, HOUR_COLOR1);
 
 	//-- Ring 3: 12 leds
-	pixels.setPixelColor(ledno(2, hour), HOUR_COLOR2);
+	setLed(2, hour, HOUR_COLOR2);
 }
 
 #define MINUTE_COLOR 0x00ff00
@@ -214,15 +252,14 @@ void setHour(int hour) {
  */
 void setMinute(byte minute) {
 	int led = minute % 60 - 1;
-	pixels.setPixelColor(ledno(0, led++), MINUTE_COLOR1);
-	pixels.setPixelColor(ledno(0, led++), MINUTE_COLOR);
-	pixels.setPixelColor(ledno(0, led++), MINUTE_COLOR1);
+	setLed(0, led++, MINUTE_COLOR1);
+	setLed(0, led++, MINUTE_COLOR);
+	setLed(0, led, MINUTE_COLOR1);
 }
 
 void setSecond(byte second) {
 	int led = second % 60;
-	pixels.setPixelColor(ledno(0, led), SECOND_COLOR);
-
+	setLed(0, led, SECOND_COLOR);
 }
 
 void setLedTime() {
