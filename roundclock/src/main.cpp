@@ -1,36 +1,15 @@
-/*
- * Three-ring clock, using three Neopixel rings:
- * 1x a 60-led ring
- * 1x a 24 led ring
- * 1x a 12 led ring
- * The rings are connected serially from large to small.
- *
- * The clock has two buttons that will set time and/or select the effects to use. Usage:
- *
- * Setting the time
- * ================
- * 1. Press both buttons simultaneously for a while until the ring flashes.
- * 2. Use the hour button to advance the hour
- * 3. Use the minute button to advance the minute
- * 4. Leave the buttons alone for 5 seconds to leave time set mode.
- *
- */
 #include "Wire.h"
+
 #include "Adafruit_NeoPixel.h"
 
+
 #define DS3231_I2C_ADDRESS 0x68
-#define PIXEL_PIN					14
-#define BUTTON_HOUR_PIN		11			// PB3
-#define	BUTTON_MIN_PIN		12			// PB4
-
-#define RING1_SIZE		60
-#define RING2_SIZE		24
-#define RING3_SIZE		12
-
-#define FULL_SIZE		(RING1_SIZE + RING2_SIZE + RING3_SIZE)
+#define PIXEL_PIN			14
+#define BUTTON_HOUR_PIN		0			// PD0
+#define	BUTTON_MIN_PIN		1			// PD1
 
 /*--- Button handling ---*/
-#define BOUNCEDELAY 	50
+#define BOUNCEDELAY 		50
 
 #define BS_IDLE			0		// Button has previous state
 #define BS_WAIT			1		// Waiting for button press timeout
@@ -89,26 +68,10 @@ public:
 	}
 };
 
-byte rgbRed(uint32_t color) {
-	return (byte) (color >> 16);
-}
-byte rgbGreen(uint32_t color) {
-	return (byte) ( (color >> 8) & 0xff);
-}
-byte rgbBlue(uint32_t color) {
-	return (byte) (color & 0xff);
-}
 
-uint32_t rgbAdd(uint32_t a, uint32_t b) {
-	int red = (rgbRed(a) + rgbRed(b)) / 2;
-	int green = (rgbGreen(a) + rgbGreen(b)) / 2;
-	int blue = (rgbBlue(a) + rgbBlue(b)) / 2;
-	return Adafruit_NeoPixel::Color((uint8_t) red, (uint8_t) green, (uint8_t) blue);
-}
-
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(FULL_SIZE, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 Button hourButton = Button(BUTTON_HOUR_PIN);
 Button minButton = Button(BUTTON_MIN_PIN);
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(60, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 // Convert normal decimal numbers to binary coded decimal
 byte decToBcd(byte val)
@@ -179,66 +142,138 @@ uint32_t Wheel(byte WheelPos)
     }
 }
 
+void flashRings(int till = 255, uint32_t color = 0x010101) {
+	int rgb = 0;
+	for(int col = 0; col <= till; col += 8) {
+		for(int i = 0; i < pixels.numPixels(); i++) {
+			rgb += color;
+			pixels.setPixelColor(i, rgb);
+		}
+		pixels.show();
+		delay(10);
+	}
+}
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256; j++) {
+    for(i=0; i<pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel((i+j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+// Slightly different, this makes the rainbow equally distributed throughout
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel(((i * 256 / pixels.numPixels()) + j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+//Theatre-style crawling lights.
+void theaterChase(uint32_t c, uint8_t wait) {
+  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
+    for (int q=0; q < 3; q++) {
+      for (uint16_t i=0; i < pixels.numPixels(); i=i+3) {
+        pixels.setPixelColor(i+q, c);    //turn every third pixel on
+      }
+      pixels.show();
+
+      delay(wait);
+
+      for (uint16_t i=0; i < pixels.numPixels(); i=i+3) {
+        pixels.setPixelColor(i+q, 0);        //turn every third pixel off
+      }
+    }
+  }
+}
+
+//Theatre-style crawling lights with rainbow effect
+void theaterChaseRainbow(uint8_t wait) {
+  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
+    for (int q=0; q < 3; q++) {
+      for (uint16_t i=0; i < pixels.numPixels(); i=i+3) {
+        pixels.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
+      }
+      pixels.show();
+
+      delay(wait);
+
+      for (uint16_t i=0; i < pixels.numPixels(); i=i+3) {
+        pixels.setPixelColor(i+q, 0);        //turn every third pixel off
+      }
+    }
+  }
+}
+
+int gongType;
+
+void gong() {
+	if(gongType > 4)
+		gongType = 0;
+	switch(gongType) {
+		case 0:
+			theaterChaseRainbow(20);
+			break;
+
+		case 1:
+			rainbow(20);
+			break;
+
+		case 2:
+			rainbowCycle(20);
+			break;
+
+		case 3:
+			theaterChase(0xaaee44, 20);
+			break;
+	}
+	gongType++;
+}
+
 #define HOUR_COLOR	0xFF0000			// red
 #define HOUR_COLOR1	0x440000			// red
 #define HOUR_COLOR2	0x110000			// red
 
-int ledno(int ring, int ledno) {
-	int base, mod;
-	switch(ring) {
-		case 0:
-			base = 0; mod = RING1_SIZE;
-			break;
-
-		case 1:
-			base = RING1_SIZE; mod = RING2_SIZE;
-			break;
-
-		case 2:
-			base = RING2_SIZE+RING1_SIZE; mod = RING3_SIZE;
-			break;
+int ledno(int ledno) {
+	if(ledno < 0) {
+		ledno = 60 - ledno;
+	} else if(ledno > 60) {
+		ledno -= 60;
 	}
-
-	while(ledno < 0)
-		ledno += mod;
-	while(ledno > mod)
-		ledno -= mod;
-//	Serial.print(ledno + base);
-//	Serial.write("\n");
-
-	return ledno + base;
+	return ledno;
 }
 
-void setLed(int ring, int led, uint32_t color) {
-	int nr = ledno(ring, led);
-	uint32_t old = pixels.getPixelColor(nr);
-	color = rgbAdd(old, color);
-	pixels.setPixelColor(nr, color);
+void setLed(int led, uint32_t color) {
+	uint32_t old = pixels.getPixelColor(led);
+	pixels.setPixelColor(led, old | color);
 }
 
 /**
  * Hours are HOUR_COLOR, spread 12 hour over 60 pixels, 5 pixels per hour with the "big" thing in the center.
  */
-void setHour(int hour) {
+void setHour(int hour, int minute) {
 	hour %= 12;
+	minute %= 60;
 
-	int firstled = hour * 5 - 2;
-	if(firstled < 0)
-		firstled = 60 - firstled;
+	int firstled = hour * 5 - 2 + (minute / (60/5));
+	while(firstled < 0)
+		firstled += 60;
 
-	setLed(0, firstled++, HOUR_COLOR2);
-	setLed(0, firstled++, HOUR_COLOR1);
-	setLed(0, firstled++, HOUR_COLOR);
-	setLed(0, firstled++, HOUR_COLOR1);
-	setLed(0, firstled, HOUR_COLOR2);
-
-	//-- ring 2: 24 leds -> 2 leds per hour
-	firstled = hour * 2 - 1;
-	setLed(1, firstled++, HOUR_COLOR1);
-	setLed(1, firstled, HOUR_COLOR1);
-
-	//-- Ring 3: 12 leds
-	setLed(2, hour, HOUR_COLOR2);
+	setLed(ledno(firstled++), HOUR_COLOR2);
+	setLed(ledno(firstled++), HOUR_COLOR1);
+	setLed(ledno(firstled++), HOUR_COLOR);
+	setLed(ledno(firstled++), HOUR_COLOR1);
+	setLed(ledno(firstled++), HOUR_COLOR2);
 }
 
 #define MINUTE_COLOR 0x00ff00
@@ -251,15 +286,18 @@ void setHour(int hour) {
  */
 void setMinute(byte minute) {
 	int led = minute % 60 - 1;
-	setLed(0, led++, MINUTE_COLOR1);
-	setLed(0, led++, MINUTE_COLOR);
-	setLed(0, led, MINUTE_COLOR1);
+	setLed(ledno(led++), MINUTE_COLOR1);
+	setLed(ledno(led++), MINUTE_COLOR);
+	setLed(ledno(led++), MINUTE_COLOR1);
 }
 
 void setSecond(byte second) {
 	int led = second % 60;
-	setLed(0, led, SECOND_COLOR);
+	setLed(led, SECOND_COLOR);
+
 }
+
+byte lastSecond = 0xff, lastHour, lastMinute;
 
 void setLedTime() {
 	byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
@@ -269,26 +307,24 @@ void setLedTime() {
 		for(int i = 0; i < 60; i++) {
 			pixels.setPixelColor(i, 0xff00ff);
 		}
-
 		return;
 	}
 
+	if(hour == lastHour && minute == lastMinute && second == lastSecond)
+		return;
+	lastHour = hour;
+	lastMinute = minute;
+	lastSecond = second;
+
 	pixels.clear();
-	setHour(hour);
+	if((minute == 0 || minute == 30) && second == 0) {
+		gong();
+		return;
+	}
+
+	setHour(hour, minute);
 	setMinute(minute);
 	setSecond(second);
-}
-
-void flashRings(int till = 255, uint32_t color = 0x010101) {
-	int rgb = 0;
-	for(int col = 0; col <= till; col += 8) {
-		for(int i = 0; i < FULL_SIZE; i++) {
-			rgb += color;
-			pixels.setPixelColor(i, rgb);
-		}
-		pixels.show();
-		delay(10);
-	}
 }
 
 void setup()
@@ -299,7 +335,7 @@ void setup()
 //	pinMode(BUTTON_MIN_PIN, INPUT);
 	Wire.begin();
 	Serial.begin(9600);
-	pixels.setBrightness(50);
+//	pixels.setBrightness(50);
 	pixels.begin();
 	pixels.show();					// Turn whole clock off
 	// set the initial time here:
@@ -319,7 +355,7 @@ byte hourToSet, minToSet, secToSet;
 
 void updateSetLeds() {
 	pixels.clear();
-	setHour(hourToSet);
+	setHour(hourToSet, 0);
 	setMinute(minToSet);
 	pixels.show();
 }
@@ -383,8 +419,6 @@ void loop()
 	readButtons();
 	if(timeSetMode) {
 		handleTimeSet();
-
-
 	} else {
 		//-- Do we need to enter TIMESET mode?
 		checkButtonsForTimeSetMode();
@@ -394,11 +428,4 @@ void loop()
 		pixels.show();
 	}
 	delay(5);
-
-	// displayTime(); // display the real-time clock data on the Serial Monitor,
-	// delay(1000); // every second
-	// for(int j = 0; j < 60; j++) {
-	// 	uint32_t col = Wheel((count + j) & 0xff);
-	// 	pixels.setPixelColor(j, col);
-	// }
 }
