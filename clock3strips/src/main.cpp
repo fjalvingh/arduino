@@ -1,33 +1,20 @@
-/*
- * Three-ring clock, using three Neopixel rings:
- * 1x a 60-led ring
- * 1x a 24 led ring
- * 1x a 12 led ring
- * The rings are connected serially from large to small.
- *
- * The clock has two buttons that will set time and/or select the effects to use. Usage:
- *
- * Setting the time
- * ================
- * 1. Press both buttons simultaneously for a while until the ring flashes.
- * 2. Use the hour button to advance the hour
- * 3. Use the minute button to advance the minute
- * 4. Leave the buttons alone for 5 seconds to leave time set mode.
- *
- */
 #include "Wire.h"
+
 #include "Adafruit_NeoPixel.h"
 
+
 #define DS3231_I2C_ADDRESS 0x68
-#define PIXEL_PIN					14
-#define BUTTON_HOUR_PIN		11			// PB3
-#define	BUTTON_MIN_PIN		12			// PB4
+#define PIXEL_PIN			14
+#define BUTTON_HOUR_PIN		11
+#define	BUTTON_MIN_PIN		12
+#define LDR_PIN				A1
 
 #define RING1_SIZE		60
 #define RING2_SIZE		24
 #define RING3_SIZE		12
 
 #define FULL_SIZE		(RING1_SIZE + RING2_SIZE + RING3_SIZE)
+
 
 /*--- Button handling ---*/
 #define BOUNCEDELAY 	50
@@ -89,22 +76,7 @@ public:
 	}
 };
 
-byte rgbRed(uint32_t color) {
-	return (byte) (color >> 16);
-}
-byte rgbGreen(uint32_t color) {
-	return (byte) ( (color >> 8) & 0xff);
-}
-byte rgbBlue(uint32_t color) {
-	return (byte) (color & 0xff);
-}
 
-uint32_t rgbAdd(uint32_t a, uint32_t b) {
-	int red = (rgbRed(a) + rgbRed(b)) / 2;
-	int green = (rgbGreen(a) + rgbGreen(b)) / 2;
-	int blue = (rgbBlue(a) + rgbBlue(b)) / 2;
-	return Adafruit_NeoPixel::Color((uint8_t) red, (uint8_t) green, (uint8_t) blue);
-}
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(FULL_SIZE, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 Button hourButton = Button(BUTTON_HOUR_PIN);
@@ -209,11 +181,9 @@ int ledno(int ring, int ledno) {
 	return ledno + base;
 }
 
-void setLed(int ring, int led, uint32_t color) {
-	int nr = ledno(ring, led);
-	uint32_t old = pixels.getPixelColor(nr);
-	color = rgbAdd(old, color);
-	pixels.setPixelColor(nr, color);
+void setLed(int led, uint32_t color) {
+	uint32_t old = pixels.getPixelColor(led);
+	pixels.setPixelColor(led, old | color);
 }
 
 /**
@@ -225,20 +195,19 @@ void setHour(int hour) {
 	int firstled = hour * 5 - 2;
 	if(firstled < 0)
 		firstled = 60 - firstled;
-
-	setLed(0, firstled++, HOUR_COLOR2);
-	setLed(0, firstled++, HOUR_COLOR1);
-	setLed(0, firstled++, HOUR_COLOR);
-	setLed(0, firstled++, HOUR_COLOR1);
-	setLed(0, firstled, HOUR_COLOR2);
+  	setLed(ledno(0, firstled++), HOUR_COLOR2);
+	setLed(ledno(0, firstled++), HOUR_COLOR1);
+	setLed(ledno(0, firstled++), HOUR_COLOR);
+	setLed(ledno(0, firstled++), HOUR_COLOR1);
+	setLed(ledno(0, firstled++), HOUR_COLOR2);
 
 	//-- ring 2: 24 leds -> 2 leds per hour
 	firstled = hour * 2 - 1;
-	setLed(1, firstled++, HOUR_COLOR1);
-	setLed(1, firstled, HOUR_COLOR1);
+	pixels.setPixelColor(ledno(1, firstled++), HOUR_COLOR1);
+	pixels.setPixelColor(ledno(1, firstled++), HOUR_COLOR1);
 
 	//-- Ring 3: 12 leds
-	setLed(2, hour, HOUR_COLOR2);
+	pixels.setPixelColor(ledno(2, hour), HOUR_COLOR2);
 }
 
 #define MINUTE_COLOR 0x00ff00
@@ -251,14 +220,15 @@ void setHour(int hour) {
  */
 void setMinute(byte minute) {
 	int led = minute % 60 - 1;
-	setLed(0, led++, MINUTE_COLOR1);
-	setLed(0, led++, MINUTE_COLOR);
-	setLed(0, led, MINUTE_COLOR1);
+	setLed(ledno(0, led++), MINUTE_COLOR1);
+	setLed(ledno(0, led++), MINUTE_COLOR);
+	setLed(ledno(0, led++), MINUTE_COLOR1);
 }
 
 void setSecond(byte second) {
 	int led = second % 60;
-	setLed(0, led, SECOND_COLOR);
+	setLed(ledno(0, led), SECOND_COLOR);
+
 }
 
 void setLedTime() {
@@ -279,7 +249,7 @@ void setLedTime() {
 	setSecond(second);
 }
 
-void flashRings(int till = 255, uint32_t color = 0x010101) {
+void flashRings(int till = 255, int color = 0x010101) {
 	int rgb = 0;
 	for(int col = 0; col <= till; col += 8) {
 		for(int i = 0; i < FULL_SIZE; i++) {
@@ -299,12 +269,19 @@ void setup()
 //	pinMode(BUTTON_MIN_PIN, INPUT);
 	Wire.begin();
 	Serial.begin(9600);
-	pixels.setBrightness(50);
+//	pixels.setBrightness(50);
 	pixels.begin();
 	pixels.show();					// Turn whole clock off
 	// set the initial time here:
 	// DS3231 seconds, minutes, hours, day, date, month, year
 //	setDS3231time((byte) 30,(byte)21,(byte)19,(byte)2,(byte)5,(byte)9,(byte)16);
+}
+
+void readLDR() {
+	int val = analogRead(LDR_PIN);
+	Serial.write("val=");
+	Serial.print(val);
+	Serial.write("\n");
 }
 
 void readButtons() {
@@ -332,7 +309,7 @@ void enterTimesetMode() {
 
 	//-- Read the current time from the clock
 	byte dayOfWeek, dayOfMonth, month, year;
-	readDS3231time(&secToSet, &minToSet, &hourToSet, &dayOfWeek, &dayOfMonth, &month, &year);
+	int valid = readDS3231time(&secToSet, &minToSet, &hourToSet, &dayOfWeek, &dayOfMonth, &month, &year);
 	flashRings();
 
 	//-- Now set the pixel data: hour and minute only, skip seconds
@@ -355,7 +332,7 @@ void handleTimeSet() {
 		byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
 
 		// retrieve data from DS3231
-		readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
+		int valid = readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
 		setDS3231time(secToSet, minToSet, hourToSet, dayOfWeek, dayOfMonth, month, year);
 		return;
 	}
@@ -394,6 +371,7 @@ void loop()
 		pixels.show();
 	}
 	delay(5);
+	readLDR();
 
 	// displayTime(); // display the real-time clock data on the Serial Monitor,
 	// delay(1000); // every second
