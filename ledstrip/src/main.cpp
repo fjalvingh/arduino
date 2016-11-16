@@ -1,6 +1,6 @@
 #include "Arduino.h"
 
-#define PIN13 9
+#define PIN13 13
 
 void setup() {
   pinMode(PIN13, OUTPUT);
@@ -9,8 +9,8 @@ void setup() {
 void loop() {
   for(;;) {
     digitalWrite(PIN13, LOW);
-    delay(400);
+    delay(200);
     digitalWrite(PIN13, HIGH);
-    delay(400);
+    delay(600);
   }
 }
