@@ -175,9 +175,9 @@ void renderColumn() {
   int val = font[c][charColIndex] & 0xff;
 
   int mask = 0x40;
-  uint32_t col = Wheel(wheelPos++);
 
   for(int row = 0; row < 7; row++) {
+    uint32_t col = Wheel(wheelPos++);
     boolean on = ((val & mask) != 0);
 //    sprintf(buffer, "pixel=%d,cx=%d,px=%d,on=%s,ch=%c,c=%d,val=%x\n", pixel, charColIndex, pixelColIndex, on ? "yes" : "no", pc, c, val);
 //    Serial.write(buffer);
@@ -212,6 +212,7 @@ void setup() {
   }
 */
   pinMode(13, OUTPUT);
+  strip.setBrightness(40);
   strip.begin();
   strip.clear();
   for(int i = 0; i < 8; i++) {
