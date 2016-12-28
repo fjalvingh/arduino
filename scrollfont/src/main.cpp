@@ -112,15 +112,39 @@ const char font[96][6] = {
 	{0x00,0x00,0x00,0x00,0x00,0x00}
 };
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(64, PIN, NEO_GRB + NEO_KHZ800);
+const int cBoards = 5;
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(64 * cBoards, PIN, NEO_GRB + NEO_KHZ800);
 
 char scrollText[] = "Hello, world! ";
-int charIndex = 0;
+unsigned int charIndex = 0;
 int charColIndex = 0;
 int pixelColIndex = 0;
 byte wheelPos = 0;
 
 uint32_t Wheel(byte WheelPos)
+{
+  return 0x400000;
+
+
+    WheelPos = 255 - WheelPos;
+    if(WheelPos < 85)
+    {
+        return strip.Color(255/3 - WheelPos, 0, WheelPos);
+    }
+    else if(WheelPos < 170)
+    {
+        WheelPos -= 85;
+        return strip.Color(0, WheelPos, 255/3 - WheelPos);
+    }
+    else
+    {
+        WheelPos -= 170;
+        return strip.Color(WheelPos, 255/3 - WheelPos, 0);
+    }
+}
+
+uint32_t WheelO(byte WheelPos)
 {
     WheelPos = 255 - WheelPos;
     if(WheelPos < 85)
@@ -142,7 +166,7 @@ uint32_t Wheel(byte WheelPos)
 void pan() {
   int toPixel = 0;
   int fromPixel = 8;
-  for(int i = 0l; i < 7*8; i++) {
+  for(int i = 0; i < cBoards*8*8-8; i++) {
     uint32_t color = strip.getPixelColor(fromPixel);
     strip.setPixelColor(toPixel, color);
     fromPixel++;
@@ -154,19 +178,16 @@ void pan() {
  * Render the next column to the display.
  */
 void renderColumn() {
-  char buffer[128];
-
   int pixel = pixelColIndex;
-  if(pixelColIndex < 8) {
+  if(pixelColIndex < cBoards * 8) {
     pixelColIndex++;
   } else {
     pan();
-    pixel = 7;
+    pixel = cBoards * 8 - 1;
   }
   pixel *= 8;
 
   int c = scrollText[charIndex];
-  int pc = c;
   if(c < 0x20 || c >= 0x80)
     c = 0;
   else
@@ -212,10 +233,10 @@ void setup() {
   }
 */
   pinMode(13, OUTPUT);
-  strip.setBrightness(40);
+  // strip.setBrightness(40);
   strip.begin();
   strip.clear();
-  for(int i = 0; i < 8; i++) {
+  for(int i = 0; i < 8*cBoards; i++) {
     renderColumn();
     strip.show();
   }
@@ -224,5 +245,5 @@ void setup() {
 void loop() {
   renderColumn();
   strip.show();
-  delay(60);
+  delay(500);
 }

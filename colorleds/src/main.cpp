@@ -13,7 +13,7 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(64, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(64*3, PIN, NEO_GRB + NEO_KHZ800);
 
 /* HSV to RGB conversion function with only integer
  * math */
@@ -143,6 +143,18 @@ uint32_t Wheel2(byte WheelPos, byte hell) {
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
+int freeRam ()
+{
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
+void ram() {
+  Serial.print(freeRam());
+  Serial.print("\n");
+}
+
 void setup() {
   // This is for Trinket 5V 16MHz, you can remove these three lines if you are not using a Trinket
   #if defined (__AVR_ATtiny85__)
@@ -152,8 +164,10 @@ void setup() {
 
 
   strip.begin();
-  strip.setBrightness(25);
+//  strip.setBrightness(25);
   strip.show(); // Initialize all pixels to 'off'
+  Serial.begin(9600);
+  ram();
 }
 
 // Fill the dots one after the other with a color
@@ -182,7 +196,7 @@ void rainbowCycle(uint8_t wait) {
   uint16_t i, j;
 
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< strip.numPixels(); i++) {
+    for(i=64*2; i< strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel2(((i * 256 / strip.numPixels()) + j) & 255, 0));
     }
     strip.show();
@@ -227,7 +241,7 @@ void theaterChaseRainbow(uint8_t wait) {
 }
 
 void loop() {
-  // Some example procedures showing how to display to the pixels:
+// Some example procedures showing how to display to the pixels:
 //  colorWipe(strip.Color(255, 0, 0), 20); // Red
 //  colorWipe(strip.Color(0, 255, 0), 20); // Green
 //  colorWipe(strip.Color(0, 0, 255), 20); // Blue
@@ -238,6 +252,7 @@ void loop() {
 //  theaterChase(strip.Color(0, 0, 127), 20); // Blue
 
 //  rainbow(10);
-  rainbowCycle(10);
+  rainbowCycle(1);
+  ram();
 //  theaterChaseRainbow(20);
 }
