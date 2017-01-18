@@ -22,8 +22,11 @@ byte Ethernet::buffer[500];
 
 static byte myip[] = { 192,168,1,200 };
 static byte gwip[] = { 192,168,1,1 };
+static byte dnsip[] = {192, 168, 1, 238};
 static byte mymac[] = { 0x74,0x69,0x69,0x2D,0x30,0x31 };
 static char* m_hispip;
+
+const char dnsName[] PROGMEM = "www.etc.to";
 
 const char page[] PROGMEM =
 "HTTP/1.0 503 Service Unavailable\r\n"
@@ -67,16 +70,19 @@ void phaseDisplay(Phase ph) {
   for(int i = 0; i < strip.getPixels(); i++)
     strip.setPixelColor(i, col);
   strip.show();
+  Serial.print("Phase ");
+  Serial.print(ph);
+  Serial.println("");
 }
 
 void fatal(Phase ph) {
-  for(int i = 0; i < 5; i++) {
-    phaseDisplay(ph);
-    delay(250);
-    strip.clear();
-    strip.show();
-    delay(500);
-  }
+  // for(int i = 0; i < 5; i++) {
+  //   phaseDisplay(ph);
+  //   delay(250);
+  //   strip.clear();
+  //   strip.show();
+  //   delay(500);
+  // }
 }
 
 void setup() {
@@ -107,39 +113,69 @@ void runEther() {
 }
 
 void runDhcp() {
+  // ether.staticSetup(myip, gwip, dnsip);
+
   ether.dhcpSetup();
   ether.printIp("IP:  ", ether.myip);
   ether.printIp("GW:  ", ether.gwip);
   ether.printIp("DNS: ", ether.dnsip);
   m_phase = DNS;
+
+  while(ether.clientWaitingGw())
+    ether.packetLoop(ether.packetReceive());
+  Serial.print("Packet loop done");
 }
 
+static byte iptest[] = {192,168,1,238};
+
 void runDNS() {
-  if(! ether.dnsLookup("www.etc.to")) {
+  if(! ether.dnsLookup(dnsName, false)) {
     Serial.println("Failed to get www.etc.to");
     fatal(m_phase);
     return;
   }
   m_hispip = ether.hisip;
   m_phase = CONN;
-  Serial.print("etc.to: ");
-  Serial.print(m_hispip);
+  m_hispip = iptest;
+  ether.printIp("etc.to: ", m_hispip);
   Serial.print("\n");
 }
 
 static char* UDP_REQ = "GET /\r\n";
 
+
+long lastTransmit;
+
+void runConn() {
+  int len = ether.packetReceive();
+  if(len > 0)
+    ether.packetLoop(len);
+  long t = millis();
+  if(t - lastTransmit < 500)
+    return;
+  lastTransmit = t;
+  ether.sendUdp("helloWorld", 10, 60987, iptest, 8901);
+}
+
+
 /**
  * Connect to remote and ask for a text to show.
  */
-void runConn() {
-//  ether.udpPrepare(8901, m_hispip, 8901);
-//  ether.udpTransmit();
-  ether.sendUdp(UDP_REQ, sizeof(UDP_REQ), 8901, m_hispip, 8901);
-  delay(1000);
+void runConnOld() {
+  byte* pb = ether.buffer;
+  byte* p = pb;
+
+  ether.udpPrepare(65432, m_hispip, 8901);
+  memset(pb + UDP_DATA_P, 0, 12);
+  memcpy(pb + UDP_DATA_P, mymac, 6);
+  ether.udpTransmit(12);
+  delay(250);
+  // ether.sendUdp(UDP_REQ, sizeof(UDP_REQ), 8901, m_hispip, 8901);
+  // delay(1000);
 }
 
 void loop() {
+
   phaseDisplay(m_phase);
   switch(m_phase) {
     case ETHER:
@@ -163,8 +199,8 @@ void loop() {
 
 
   // wait for an incoming TCP packet, but ignore its contents
-  if (ether.packetLoop(ether.packetReceive())) {
-    memcpy_P(ether.tcpOffset(), page, sizeof page);
-    ether.httpServerReply(sizeof page - 1);
-  }
+  // if (ether.packetLoop(ether.packetReceive())) {
+  //   memcpy_P(ether.tcpOffset(), page, sizeof page);
+  //   ether.httpServerReply(sizeof page - 1);
+  // }
 }
