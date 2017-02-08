@@ -116,7 +116,7 @@ const int cBoards = 5;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(64 * cBoards, PIN, NEO_GRB + NEO_KHZ800);
 
-char scrollText[] = "Hello, world! ";
+char scrollText[] = "The Hills are alive with the sound of music, With songs they have sung for a thousand years. The hills fill my heart with the sound of music, My heart wants to sing every song it hears";
 unsigned int charIndex = 0;
 int charColIndex = 0;
 int pixelColIndex = 0;
@@ -124,9 +124,6 @@ byte wheelPos = 0;
 
 uint32_t Wheel(byte WheelPos)
 {
-  return 0x400000;
-
-
     WheelPos = 255 - WheelPos;
     if(WheelPos < 85)
     {
@@ -233,7 +230,6 @@ void setup() {
   }
 */
   pinMode(13, OUTPUT);
-  // strip.setBrightness(40);
   strip.begin();
   strip.clear();
   for(int i = 0; i < 8*cBoards; i++) {
@@ -245,5 +241,5 @@ void setup() {
 void loop() {
   renderColumn();
   strip.show();
-  delay(500);
+  delay(100);
 }

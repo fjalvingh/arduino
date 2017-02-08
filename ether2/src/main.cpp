@@ -24,8 +24,8 @@ void loop() {
     {
       do
         {
-          // success = udp.beginPacket(IPAddress(192,168,1,238),8901);
-          success = udp.beginPacket(IPAddress(145,131,8,118),8901);
+          success = udp.beginPacket(IPAddress(192,168,1,238),8901);
+          // success = udp.beginPacket(IPAddress(145,131,8,118),8901);
           Serial.print("beginPacket: ");
           Serial.println(success ? "success" : "failed");
           //beginPacket fails if remote ethaddr is unknown. In this case an
