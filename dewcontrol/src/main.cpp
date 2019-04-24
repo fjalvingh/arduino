@@ -2,8 +2,11 @@
 
 #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+// #include <Adafruit_GFX.h>
+// #include <Adafruit_SSD1306.h>
+#include <SSD1306Ascii.h>
+#include <SSD1306AsciiWire.h>
+
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <DHT.h>
@@ -15,7 +18,9 @@
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+SSD1306AsciiWire display;
+// Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define LOGO_HEIGHT   16
 #define LOGO_WIDTH    16
@@ -70,27 +75,32 @@ Si7021 si7021;
 //   }
 // }
 
-void initPrint() {
-  display.setTextSize(1);      // Normal 1:1 pixel scale
-  display.setTextColor(WHITE); // Draw white text
-  display.cp437(true);         // Use full 256 char 'Code Page 437' font
-}
+// void initPrint() {
+//   display.setTextSize(1);      // Normal 1:1 pixel scale
+//   display.setTextColor(WHITE); // Draw white text
+//   display.cp437(true);         // Use full 256 char 'Code Page 437' font
+// }
 
 void print(char* what) {
-  while(*what != 0) {
-    display.write(*what++);
-  }
+  display.print(what);
+  // while(*what != 0) {
+  //   display.write(*what++); display.print(what);
+  // }
 }
 
 void setup() {
   Serial.begin(9600);
 
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
-  initPrint();
+  // // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  // if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
+  //   Serial.println(F("SSD1306 allocation failed"));
+  //   for(;;); // Don't proceed, loop forever
+  // }
+  // initPrint();
+  Wire.begin();
+  Wire.setClock(400000L);
+  display.begin(&Adafruit128x64, 0x3c, OLED_RESET);
+  display.setFont(Adafruit5x7);
 
   bool status;
 
@@ -118,11 +128,11 @@ void setup() {
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
-  display.display();
+  // display.display();
   delay(1500); // Pause for 2 seconds
 
   // Clear the buffer
-  display.clearDisplay();
+  display.clear();
 
   // testdrawchar();      // Draw characters of the default font
   //
@@ -138,8 +148,8 @@ static sensors_event_t eventh2;
 void loop() {
   char buf[20];
 
-  display.clearDisplay();
-  initPrint();
+  // display.clear();
+  // initPrint();
 
   bme.takeForcedMeasurement();
   float t = bme.readTemperature();
@@ -164,12 +174,12 @@ void loop() {
     dht2.temperature().getEvent(&eventt2);
     dht2.humidity().getEvent(&eventh2);
   }
-  display.setCursor(0, 10);
+  display.setCursor(0, 8);
 
   if (isnan(eventt.temperature)) {
-    print("notemp!");
+    print("\nnotemp!");
   } else {
-    print("dht11 ");
+    print("\ndht11 ");
     dtostrf(eventt.temperature, 4, 1, buf);
     print(buf);
     print("C  ");
@@ -185,11 +195,11 @@ void loop() {
   }
 
   // dht22
-  display.setCursor(0, 20);
+  display.setCursor(0, 16);
   if (isnan(eventt.temperature)) {
-    print("notemp!");
+    print("\nnotemp!");
   } else {
-    print("dht22 ");
+    print("\ndht22 ");
     dtostrf(eventt2.temperature, 4, 1, buf);
     print(buf);
     print("C  ");
@@ -210,8 +220,8 @@ void loop() {
   //-- Si7021
   float h3 = si7021.measureHumidity();
   float t3 = si7021.getTemperatureFromPreviousHumidityMeasurement();
-  display.setCursor(0, 30);
-  print("7021  ");
+  display.setCursor(0, 24);
+  print("\n7021  ");
 
   dtostrf(t3, 4, 1, buf);
   print(buf);
@@ -224,6 +234,6 @@ void loop() {
   // display.setCursor(0, 30);
   // display.print(count++);
 
-  display.display();
+  // display.display();
   delay(1000);
 }
