@@ -3,8 +3,11 @@
 #include "Adafruit_NeoPixel.h"
 
 
+//#define DS3231_I2C_ADDRESS 0xD0
+
 #define DS3231_I2C_ADDRESS 0x68
-#define PIXEL_PIN			14
+// #define PIXEL_PIN			12	// miso
+#define PIXEL_PIN			2 //pcb2
 #define BUTTON_HOUR_PIN		0			// PD0
 #define	BUTTON_MIN_PIN		1			// PD1
 
@@ -72,6 +75,7 @@ public:
 Button hourButton = Button(BUTTON_HOUR_PIN);
 Button minButton = Button(BUTTON_MIN_PIN);
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(60, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
+// Adafruit_NeoPixel pixels = Adafruit_NeoPixel(60, PIXEL_PIN, NEO_BRG + NEO_KHZ800);
 
 // Convert normal decimal numbers to binary coded decimal
 byte decToBcd(byte val)
@@ -310,8 +314,8 @@ void setLedTime() {
 		return;
 	}
 
-	if(hour == lastHour && minute == lastMinute && second == lastSecond)
-		return;
+	// if(hour == lastHour && minute == lastMinute && second == lastSecond)
+	// 	return;
 	lastHour = hour;
 	lastMinute = minute;
 	lastSecond = second;
@@ -329,18 +333,13 @@ void setLedTime() {
 
 void setup()
 {
+	pinMode(PIXEL_PIN, OUTPUT);
 	minButton.begin();
 	hourButton.begin();
-//	pinMode(BUTTON_HOUR_PIN, INPUT);
-//	pinMode(BUTTON_MIN_PIN, INPUT);
 	Wire.begin();
-	Serial.begin(9600);
-//	pixels.setBrightness(50);
+	// Serial.begin(9600);
 	pixels.begin();
 	pixels.show();					// Turn whole clock off
-	// set the initial time here:
-	// DS3231 seconds, minutes, hours, day, date, month, year
-//	setDS3231time((byte) 30,(byte)21,(byte)19,(byte)2,(byte)5,(byte)9,(byte)16);
 }
 
 void readButtons() {
@@ -414,6 +413,8 @@ void handleTimeSet() {
 	}
 }
 
+static int count = 0;
+
 void loop()
 {
 	readButtons();
@@ -423,9 +424,15 @@ void loop()
 		//-- Do we need to enter TIMESET mode?
 		checkButtonsForTimeSetMode();
 
+		// if((count++ & 0x01) == 0) {
+		// 	pixels.setPixelColor(0, 0xff, 0, 0);
+		// } else {
+		// 	pixels.setPixelColor(0, 0, 0xff, 0);
+		// }
+		// pixels.show();
 
 		setLedTime();
 		pixels.show();
 	}
-	delay(5);
+	delay(10);
 }
